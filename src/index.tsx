@@ -4,6 +4,7 @@ import './index.css'
 // import App from "./App";
 import SkillTree from './pages/SkillTree'
 import * as serviceWorker from './serviceWorker'
+import '../node_modules/bootstrap/dist/css/bootstrap.css'
 
 ReactDOM.render(<SkillTree />, document.getElementById('root'))
 

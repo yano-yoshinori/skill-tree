@@ -8,8 +8,9 @@ let baseId = 10000
 type State = {
   items: any[]
   checkedItems: any[]
-  isEdit: boolean
+  canEdit: boolean
   status: string
+  renameTargetUid: string
 }
 
 export default class SkillTree extends Component {
@@ -18,8 +19,9 @@ export default class SkillTree extends Component {
   state: State = {
     items: [],
     checkedItems: [],
-    isEdit: false,
+    canEdit: false,
     status: '',
+    renameTargetUid: '',
   }
 
   componentDidMount() {
@@ -56,59 +58,102 @@ export default class SkillTree extends Component {
     this.inputRefs[uid].value = ''
   }
 
+  onKeyPressRename(e: any, uid: string, parentId: number) {
+    if (e.key !== 'Enter') return
+
+    const { value } = e.target
+    const { items } = this.state
+
+    const foundIndex = items.findIndex((item) => `${item.parentId}-${item.id}` === uid)
+    const foundItem = items[foundIndex]
+
+    items[foundIndex] = {
+      id: foundItem.id,
+      name: value,
+      parentId: foundItem.parentId,
+    }
+
+    this.setState({ items, renameTargetUid: '', checkedItems: [] })
+  }
+
   onClickEdit = () => {
-    const { isEdit } = this.state
-    this.setState({ isEdit: !isEdit })
+    const { canEdit } = this.state
+    this.setState({ canEdit: !canEdit })
   }
 
   onClickDelete = () => {
     const { items, checkedItems } = this.state
 
     this.setState({
-      items: items.filter(item => {
+      items: items.filter((item) => {
         return !checkedItems.includes(item.uid)
       }),
+      checkedItems: [],
     })
   }
 
-  onChangeCheckItem = (uid: string) => {
+  onClickRename = () => {
+    const { checkedItems, renameTargetUid } = this.state
+
+    this.setState({ renameTargetUid: renameTargetUid ? '' : checkedItems[0] })
+  }
+
+  onChangeCheckItem = (e: any, uid: string) => {
     const { checkedItems } = this.state
+    const { checked } = e.target
+
+    const newCheckedItems = checked
+      ? checkedItems.concat(uid)
+      : checkedItems.filter((item) => item !== uid)
 
     this.setState({
-      checkedItems: checkedItems.concat(uid),
+      checkedItems: newCheckedItems,
     })
   }
 
   recurse(children: any[]) {
-    const { isEdit } = this.state
-    return children.map(child => {
+    const { canEdit, renameTargetUid, checkedItems } = this.state
+    console.log(renameTargetUid)
+    return children.map((child) => {
       const uid = `${child.parentId}-${child.id}`
       return (
         <div
           key={uid}
           style={{
             marginLeft: 20,
-            borderLeft: isEdit ? '1px solid #CCC' : 'none',
+            borderLeft: canEdit ? '1px solid #CCC' : 'none',
           }}
         >
-          {isEdit ? (
+          {canEdit ? (
             <label style={{ cursor: 'pointer' }}>
-              <input type="checkbox" onChange={() => this.onChangeCheckItem(uid)} />
-              <span>{child.name}</span>
+              <input
+                type="checkbox"
+                onChange={(e) => this.onChangeCheckItem(e, uid)}
+                checked={checkedItems.includes(uid)}
+              />
+              {uid === renameTargetUid ? (
+                <input
+                  type="text"
+                  defaultValue={child.name}
+                  onKeyPress={(e) => this.onKeyPressRename(e, uid, child.id)}
+                />
+              ) : (
+                <span>{child.name}</span>
+              )}
             </label>
           ) : (
             <div>{child.name}</div>
           )}
 
           {this.recurse(child.children)}
-          {isEdit && (
+          {canEdit && (
             <div style={{ marginLeft: 20 }}>
               <input
                 type="text"
-                ref={ref => {
+                ref={(ref) => {
                   this.inputRefs[uid] = ref
                 }}
-                onKeyPress={e => this.onKeyPressAddItem(e, uid, child.id)}
+                onKeyPress={(e) => this.onKeyPressAddItem(e, uid, child.id)}
               />
             </div>
           )}
@@ -118,26 +163,33 @@ export default class SkillTree extends Component {
   }
 
   render() {
-    const { items, isEdit, status } = this.state
+    const { items, canEdit, status, checkedItems } = this.state
     const tree = buildSkillTree(items)
 
     return (
       <>
         <div style={{ margin: 10 }}>
           <span>operation: </span>
-          <button onClick={this.onClickEdit}>edit</button>
-          <button onClick={this.onClickDelete}>delete</button>
+          <button className="mr-2" onClick={this.onClickEdit}>
+            edit mode
+          </button>
+          <button className="mr-2" onClick={this.onClickDelete} disabled={!checkedItems.length}>
+            delete
+          </button>
+          <button onClick={this.onClickRename} disabled={checkedItems.length !== 1}>
+            rename
+          </button>
           <span style={{ color: 'red' }}>{status}</span>
         </div>
         {this.recurse(tree)}
-        {isEdit && (
+        {canEdit && (
           <div style={{ marginLeft: 20 }}>
             <input
               type="text"
-              ref={ref => {
+              ref={(ref) => {
                 this.inputRefs[''] = ref
               }}
-              onKeyPress={e => this.onKeyPressAddItem(e, '', 0)}
+              onKeyPress={(e) => this.onKeyPressAddItem(e, '', 0)}
             />
           </div>
         )}
